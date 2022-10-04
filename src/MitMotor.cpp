@@ -127,6 +127,53 @@ bool MitMotor::setTorque(float torque_setpoint, unsigned long timeout_us){
 
 
 
+bool MitMotor::setVelocity(float velocity_setpoint, float kd_float)
+{
+    //Normal mode (Polling based)
+    if(!m_is_auto_mode_running) return m_sendVelocity(velocity_setpoint, kd_float);
+
+
+    //Auto mode (Interrupt driven)
+    if (m_is_response_ready)
+    {
+        m_is_response_ready = false;
+        uint8_t irq = m_mcp2515.getInterrupts();
+        if (irq & MCP2515::CANINTF_MERRF)
+        {
+            Serial.print("\n\n!!!!!ERROR MERF (ERROR IN MESSAGE TRANSMISSION OR RECEPTION)!!!"); Serial.print(m_name); Serial.print("\n\n");
+            m_mcp2515.clearMERR();
+            m_mcp2515.clearInterrupts();
+        }
+        if (irq & MCP2515::CANINTF_ERRIF)
+        {
+            Serial.print("\n\n!!!!!!!ERROR BUFFER FULL!!!!!!"); Serial.print(m_name); Serial.print("\n\n");
+            m_mcp2515.clearRXnOVRFlags();
+            m_mcp2515.clearERRIF();
+            m_mcp2515.clearInterrupts();
+        }
+        m_readMotorResponse();
+        return m_sendVelocity(velocity_setpoint, kd_float);
+    }
+
+    else if ((millis() - m_last_response_time_ms) < MILLIS_LIMIT_UNTIL_RETRY) //In case setTorque() was called again before message reception.
+    {
+        return true;
+    }
+    else
+    {
+        //Serial.print("\t Millis: "); Serial.print(millis()); Serial.print("\tLast message"); Serial.print(m_last_response_time_ms); Serial.print("\tRetrying to recover "); Serial.println(m_name); 
+        if ((millis() - m_last_retry_time_ms) > MILLIS_LIMIT_UNTIL_RETRY)
+        {
+            m_last_retry_time_ms = millis();
+            m_emptyMCP2515buffer();
+            m_sendVelocity(velocity_setpoint, kd_float);
+        }
+        return false;
+    }
+}
+
+
+
 bool MitMotor::setCurrentPositionAsZero()
 {
     stopAutoMode();
@@ -173,6 +220,32 @@ bool MitMotor::m_sendTorque(float torque_setpoint)
     can_msg.data[5] = 0x0;
     can_msg.data[6] = t_int >> 8;
     can_msg.data[7] = t_int & 0xFF;
+    //m_mcp2515.clearInterrupts();
+    bool result = (m_mcp2515.sendMessage(&can_msg) == MCP2515::ERROR_OK); 
+    return result;
+}
+
+
+
+bool MitMotor::m_sendVelocity(float velocity_setpoint, float kd_float)
+{
+    can_frame can_msg;
+    /// limit data to be within bounds ///
+    velocity_setpoint = constrain(velocity_setpoint, m_motor_type.V_MIN, m_motor_type.V_MAX) * m_motor_type.DIRECTION_SIGN;
+    kd_float = constrain(kd_float, m_motor_type.KD_MIN, m_motor_type.KD_MAX);
+    unsigned int velocity_uint = m_float_to_uint(velocity_setpoint, m_motor_type.V_MIN, m_motor_type.V_MAX); 
+    unsigned int kd_uint  = m_float_to_uint(kd_float, m_motor_type.KD_MIN, m_motor_type.KD_MAX);
+
+    can_msg.can_id  = 0x01;
+    can_msg.can_dlc = 0x08;
+    can_msg.data[0] = 0x7F;
+    can_msg.data[1] = 0xFF;
+    can_msg.data[2] = static_cast<uint8_t>(velocity_uint >> 4);
+    can_msg.data[3] = static_cast<uint8_t>(velocity_uint << 4);     //KP bits (lower 4 bits) are set to 0 (0's filled by the left shift). 
+    can_msg.data[4] = 0x0;
+    can_msg.data[5] = static_cast<uint8_t>(kd_uint >> 4);
+    can_msg.data[6] = static_cast<uint8_t>((kd_uint << 4) | 0B00000111);
+    can_msg.data[7] = 0xFF;
     //m_mcp2515.clearInterrupts();
     bool result = (m_mcp2515.sendMessage(&can_msg) == MCP2515::ERROR_OK); 
     return result;

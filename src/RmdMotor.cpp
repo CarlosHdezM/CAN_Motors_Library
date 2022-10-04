@@ -176,6 +176,14 @@ bool RmdMotor::setTorque(float torque_setpoint, unsigned long timeout_us){
 
 
 
+bool RmdMotor::setVelocity(float velocity_setpoint, float kd_float)
+{
+    Serial.println("ERROR!!! setVelocity not implemented yet for RMD motors.");
+    return false;
+}
+
+
+
 bool RmdMotor::setCurrentPositionAsZero()
 {
     stopAutoMode();
@@ -255,6 +263,14 @@ bool RmdMotor::m_sendTorque(float torque_setpoint)
     //m_mcp2515.clearInterrupts();
     bool result = (m_mcp2515.sendMessage(&can_msg) == MCP2515::ERROR_OK);
     return result;
+}
+
+
+
+bool RmdMotor::m_sendVelocity(float velocity_setpoint, float kd_float)
+{
+    Serial.println("ERROR!!! sendVelocity not implemented yet for RMD motors.");
+    return false;
 }
 
 

@@ -30,6 +30,7 @@ class RmdMotor : public CanMotor{
         bool turnOff() override;
         bool setTorque(float torque_setpoint) override;
         bool setTorque(float torque_setpoint, unsigned long timeout_us) override;
+        bool setVelocity(float velocity_setpoint, float kd_float = 1.0) override;
         bool setCurrentPositionAsZero() override;
         bool setCurrentPositionAsOrigin() override;
 
@@ -45,6 +46,7 @@ class RmdMotor : public CanMotor{
 
         //Private member functions that this class defines (overrides from the base):
         bool m_sendTorque(float torque_setpoint);
+        bool m_sendVelocity(float velocity_setpoint, float kd_float) override;
         bool m_readMotorResponse() override;
 
         //Private member functions exclusive for RMD Motors.

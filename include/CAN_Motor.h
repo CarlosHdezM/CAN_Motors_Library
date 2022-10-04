@@ -25,6 +25,7 @@ class CanMotor{
         virtual bool turnOff()= 0;
         virtual bool setTorque(float torque_setpoint) = 0;
         virtual bool setTorque(float torque_setpoint, unsigned long timeout_us) = 0;
+        virtual bool setVelocity(float velocity_setpoint, float kd_float = 1.0) = 0;
         virtual bool setCurrentPositionAsZero() = 0;
         virtual bool setCurrentPositionAsOrigin() = 0;
 
@@ -56,5 +57,6 @@ class CanMotor{
         
         //Protected member functions that each derived class must define.
         virtual bool m_sendTorque(float torque_setpoint) = 0;
+        virtual bool m_sendVelocity(float velocity_setpoint, float kd_float) = 0;
         virtual bool m_readMotorResponse() = 0;
 };
